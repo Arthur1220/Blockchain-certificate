@@ -25,6 +25,6 @@ export const update = async (req, res) => {
 
 // DELETE
 export const remove = async (req, res) => {
-  await institutionService.deleteInstitution(req.params.id);
+  await institutionService.deleteInstitution(req.params.id, req.user);
   res.status(204).send();
 };

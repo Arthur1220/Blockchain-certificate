@@ -22,6 +22,14 @@ export const getAllInstitutions = async () => {
 };
 
 export const getInstitutionById = async (institutionId, user) => {
+  // findUniqueOrThrow will automatically throw an error if not found,
+  // which our new errorHandler will correctly catch as a 404.
+  const institution = await prisma.institution.findUniqueOrThrow({
+    where: { id: institutionId },
+    include: { address: true },
+  });
+
+  // Permission check remains the same
   if (user.role !== 'ADMIN') {
     const membership = await prisma.institutionMembership.findUnique({
       where: {
@@ -34,10 +42,8 @@ export const getInstitutionById = async (institutionId, user) => {
       throw error;
     }
   }
-  return prisma.institution.findUniqueOrThrow({
-    where: { id: institutionId },
-    include: { address: true },
-  });
+  
+  return institution;
 };
 
 // --- UPDATE ---
@@ -56,14 +62,30 @@ export const updateInstitution = async (institutionId, data, user) => {
 };
 
 // --- DELETE ---
-export const deleteInstitution = async (id) => {
-  const institution = await prisma.institution.findUniqueOrThrow({
+export const deleteInstitution = async (id, user) => {
+  // A verificação de permissão está correta
+  if (user.role !== 'ADMIN') {
+    const error = new Error('Forbidden');
+    error.statusCode = 403;
+    throw error;
+  }
+  
+  // Busca a instituição para pegar o ID do endereço
+  const institution = await prisma.institution.findUnique({
     where: { id },
     select: { addressId: true },
   });
 
-  return prisma.$transaction([
+  if (!institution) {
+    const error = new Error('Institution not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Executa a deleção em uma transação para garantir que tudo ocorra
+  await prisma.$transaction([
     prisma.institutionMembership.deleteMany({ where: { institutionId: id } }),
+    prisma.courseTemplate.deleteMany({ where: { institutionId: id } }),
     prisma.institution.delete({ where: { id } }),
     prisma.address.delete({ where: { id: institution.addressId } }),
   ]);

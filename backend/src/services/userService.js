@@ -15,6 +15,7 @@ const userSelectOptions = {
   isActive: true,
   phone: true,
   cpf: true,
+  role: true,
 };
 
 // --- CREATE ---
@@ -40,7 +41,7 @@ export const createUser = async (userData) => {
       lastName: userData.lastName,
       phone: userData.phone,
       cpf: userData.cpf,
-      role: userData.role || 'USER', // Default role if not provided
+      role: userData.role || 'STUDENT',
       password: hashedPassword,
     },
     select: userSelectOptions,
