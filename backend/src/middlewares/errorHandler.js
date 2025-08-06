@@ -1,7 +1,10 @@
-// Este middleware será nosso "pegador" de erros geral.
-// Não importa onde o erro aconteça, ele vai cair aqui.
+import config from '../config/index.js'; // Importa nossa configuração central
+
 export const errorHandler = (err, req, res, next) => {
-  console.error(err.stack); // Loga o erro no console para debugging
+  // Só imprime o erro no console se não estivermos em ambiente de teste
+  if (config.env !== 'test') {
+    console.error(err.stack);
+  }
 
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';

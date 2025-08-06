@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import config from '../config/index.js';
 
 const prisma = new PrismaClient();
 
@@ -44,10 +45,10 @@ export const loginUser = async (email, password) => {
   };
 
   const accessToken = jwt.sign(accessTokenPayload, process.env.JWT_SECRET, {
-    expiresIn: '15m',
+    expiresIn: config.jwt.accessExpiresIn,
   });
   const refreshToken = jwt.sign(refreshTokenPayload, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: '7d',
+    expiresIn: config.jwt.refreshExpiresIn,
   });
 
   return { accessToken, refreshToken };
