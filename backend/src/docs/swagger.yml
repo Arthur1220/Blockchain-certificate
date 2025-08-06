@@ -1,0 +1,186 @@
+openapi: '3.0.0'
+info:
+  title: 'Certificate Blockchain System API'
+  version: '1.0.0'
+  description: 'API para gerenciar certificados, instituições e registros em blockchain. A autenticação é baseada em cookies httpOnly.'
+servers:
+  - url: '/api'
+    description: 'Servidor de Desenvolvimento'
+
+tags:
+  - name: 'Authentication'
+    description: 'Operações de Autenticação (Login, Logout, Refresh)'
+  - name: 'Users'
+    description: 'Operações de gerenciamento de usuários'
+  - name: 'Healthcheck'
+    description: 'Verificação de status da API'
+
+components:
+  schemas:
+    LoginPayload:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: 'jane.doe@example.com'
+        password:
+          type: string
+          format: password
+          example: 'password123'
+    UserRegisterPayload:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          example: 'janedoe'
+        email:
+          type: string
+          format: email
+          example: 'jane.doe@example.com'
+        password:
+          type: string
+          format: password
+          example: 'password123'
+        firstName:
+          type: string
+          example: 'Jane'
+        lastName:
+          type: string
+          example: 'Doe'
+        phone:
+          type: string
+          example: '+5573999998888'
+        cpf:
+          type: string
+          example: '12345678900'
+        role:
+          type: string
+          enum: [STUDENT, STAFF, ADMIN]
+          description: Opcional. O padrão é STUDENT.
+          example: STUDENT
+    UserUpdatePayload:
+      type: object
+      properties:
+        username:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        cpf:
+          type: string
+        role:
+          type: string
+          enum: [STUDENT, STAFF, ADMIN]       
+
+paths:
+  /: 
+    get:
+      tags: [Healthcheck]
+      summary: 'Verifica se a API está no ar'
+      responses:
+        '200': { description: 'API está funcionando' }
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: 'Realiza login e define os cookies de autenticação'
+      description: 'Após o sucesso, os cookies `accessToken` (15min) e `refreshToken` (7dias) são definidos no navegador.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginPayload'
+      responses:
+        '200': { description: 'Login bem-sucedido.' }
+        '401': { description: 'Credenciais inválidas.' }
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: 'Usa o refreshToken para obter um novo accessToken'
+      description: 'Esta rota deve ser chamada pelo frontend quando o accessToken expirar. Usa o cookie `refreshToken`.'
+      responses:
+        '200': { description: 'Token de acesso renovado com sucesso.' }
+        '401': { description: 'Refresh token não encontrado.' }
+        '403': { description: 'Refresh token inválido ou expirado.' }
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: 'Realiza logout e limpa os cookies de autenticação'
+      responses:
+        '200': { description: 'Logout bem-sucedido.' }
+  
+  /users/register:
+    post:
+      tags: [Users]
+      summary: 'Registra um novo usuário'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterPayload'
+      responses:
+        '201': { description: 'Usuário criado com sucesso.' }
+        '409': { description: 'Conflito, o nome de usuário ou e-mail já existe.' }
+
+  /users/profile/me:
+    get:
+      tags: [Users]
+      summary: 'Busca os dados do usuário autenticado'
+      description: 'Requer cookie de autenticação.'
+      responses:
+        '200': { description: 'Dados do usuário.' }
+        '401': { description: 'Não autorizado.' }
+  
+  /users:
+    get:
+      tags: [Users]
+      summary: 'Lista todos os usuários (Somente Admin)'
+      description: 'Requer cookie de autenticação com permissão de Admin.'
+      responses:
+        '200': { description: 'Lista de usuários.' }
+        '401': { description: 'Não autorizado.' }
+        '403': { description: 'Permissão negada.' }
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: 'Busca um usuário por ID (Protegido)'
+      description: 'Requer cookie de autenticação.'
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 'Dados do usuário.' }
+        '404': { description: 'Usuário não encontrado.' }
+    patch:
+      tags: [Users]
+      summary: 'Atualiza um usuário (Admin pode atualizar qualquer um, usuário comum apenas a si mesmo)'
+      description: 'Requer cookie de autenticação.'
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdatePayload'
+      responses:
+        '200': { description: 'Usuário atualizado com sucesso.' }
+        '403': { description: 'Permissão negada.' }
+    delete:
+      tags: [Users]
+      summary: 'Deleta um usuário por ID (Somente Admin)'
+      description: 'Requer cookie de autenticação com permissão de Admin.'
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Usuário deletado com sucesso.' }
+        '403': { description: 'Permissão negada.' }

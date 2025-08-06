@@ -1,0 +1,19 @@
+# Arquivo de configuração local (nunca deve ir para a imagem)
+.env
+
+# Dependências locais (a imagem instala as suas próprias)
+node_modules
+
+# Logs e arquivos de depuração do NPM
+npm-debug.log
+
+# Pasta de build do TypeScript (se usar no futuro)
+dist
+
+# Arquivos do Docker (não precisam estar dentro deles mesmos)
+Dockerfile
+docker-compose.yml
+
+# Controle de versão do Git
+.git
+.gitignore

@@ -1,0 +1,34 @@
+# Definição dos nossos serviços (containers)
+services:
+  # Serviço do nosso backend
+  backend:
+    build: ./backend # Constrói a imagem usando o Dockerfile no diretório backend
+    ports:
+      - "8000:8000" # Mapeia a porta 8000 do seu PC para a porta 8000 do container
+    volumes:
+      - ./backend:/app # Monta o código local dentro do container para desenvolvimento (hot-reload)
+      - /app/node_modules # Impede que a pasta node_modules local sobrescreva a do container
+    environment:
+      # A URL do banco de dados agora aponta para o serviço 'db', não 'localhost'
+      DATABASE_URL: "postgresql://postgres:mysecretpassword@db:5432/certificate_db"
+      PORT: 8000
+    depends_on:
+      - db # Diz ao Docker para iniciar o serviço 'db' ANTES de iniciar o 'backend'
+
+  # Serviço do banco de dados PostgreSQL
+  db:
+    image: postgres:15-alpine # Usa uma imagem oficial e leve do PostgreSQL
+    environment:
+      # Define as credenciais para o banco de dados.
+      # DEVEM ser as mesmas usadas na DATABASE_URL do backend.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: certificate_db
+    ports:
+      - "5432:5432" # Expõe a porta do banco para que você possa acessá-la do seu PC, se precisar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Garante que os dados do banco persistam se os containers forem reiniciados
+
+# Define um volume nomeado para persistir os dados do PostgreSQL
+volumes:
+  postgres_data:
