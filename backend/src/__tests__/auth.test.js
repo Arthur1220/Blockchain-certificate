@@ -6,6 +6,9 @@ const prisma = new PrismaClient();
 
 // Limpa o banco de dados antes de todos os testes neste arquivo
 beforeAll(async () => {
+  await prisma.institutionMembership.deleteMany({});
+  await prisma.institution.deleteMany({});
+  await prisma.address.deleteMany({});
   await prisma.user.deleteMany({});
 });
 

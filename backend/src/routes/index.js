@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import userRoutes from './userRoutes.js';
 import authRoutes from './authRoutes.js';
+import institutionRoutes from './institutionRoutes.js';
 
 const router = Router();
 
@@ -15,5 +16,8 @@ router.use('/users', userRoutes);
 // Importa as rotas de autenticação
 // (por exemplo, login, logout, refresh token)
 router.use('/auth', authRoutes);
+// Importa as rotas de instituições
+// (por exemplo, criação, atualização, listagem)
+router.use('/institutions', institutionRoutes);
 
 export default router;
