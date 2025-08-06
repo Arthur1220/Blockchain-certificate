@@ -4,11 +4,16 @@ import { protect } from '../middlewares/protect.js';
 import { authorize } from '../middlewares/authorize.js';
 import { validate } from '../middlewares/validate.js';
 import institutionValidator from '../validators/institutionValidator.js';
+import courseRoutes from './courseRoutes.js';
 
 const router = Router();
 
 // Middleware de proteção para todas as rotas de instituição
 router.use(protect);
+
+// Aninha as rotas de curso DENTRO das rotas de instituição
+// Isso cria os endpoints /api/institutions/:institutionId/courses
+router.use('/:institutionId/courses', authorize('ADMIN', 'STAFF'), courseRoutes);
 
 // Rotas que são exclusivamente para ADMINS
 //CREATE

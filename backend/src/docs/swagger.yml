@@ -2,25 +2,26 @@ openapi: '3.0.0'
 info:
   title: 'Certificate Blockchain System API'
   version: '1.0.0'
-  description: 'API para gerenciar certificados, instituições e registros em blockchain. A autenticação é baseada em cookies httpOnly.'
+  description: 'API para gerenciar usuários, instituições, cursos e certificados em blockchain. A autenticação é baseada em cookies httpOnly.'
 servers:
   - url: '/api'
     description: 'Servidor de Desenvolvimento'
 
 tags:
   - name: 'Authentication'
-    description: 'Operações de Autenticação (Login, Logout, Refresh)'
+    description: 'Autenticação (Login, Logout, Refresh)'
   - name: 'Users'
-    description: 'Operações de gerenciamento de usuários'
+    description: 'Gerenciamento de usuários'
   - name: 'Institutions'
-    description: 'Operações para gerenciar instituições'
+    description: 'Gerenciamento de instituições'
+  - name: 'Courses'
+    description: 'Gerenciamento de cursos por instituição'
   - name: 'Healthcheck'
     description: 'Verificação de status da API'
 
-
 components:
   schemas:
-    # --- Schemas de Autenticação ---
+    # --- Auth ---
     LoginPayload:
       type: object
       required: [email, password]
@@ -33,58 +34,27 @@ components:
           type: string
           format: password
           example: 'password123'
-
-    # --- Schemas de Usuários ---
+    
+    # --- Users ---
     UserRegisterPayload:
       type: object
       required: [username, email, password]
       properties:
-        username:
-          type: string
-          example: 'janedoe'
-        email:
-          type: string
-          format: email
-          example: 'jane.doe@example.com'
-        password:
-          type: string
-          format: password
-          example: 'password123'
-        firstName:
-          type: string
-          example: 'Jane'
-        lastName:
-          type: string
-          example: 'Doe'
-        phone:
-          type: string
-          example: '+5573999998888'
-        cpf:
-          type: string
-          example: '12345678900'
-        role:
-          type: string
-          enum: [STUDENT, STAFF, ADMIN]
-          description: 'O padrão é STUDENT se não for fornecido.'
-          example: STUDENT
+        username: { type: string, example: 'janedoe' }
+        email: { type: string, format: email, example: 'jane.doe@example.com' }
+        password: { type: string, format: password, example: 'password123' }
+        firstName: { type: string, example: 'Jane' }
+        lastName: { type: string, example: 'Doe' }
+        role: { type: string, enum: [STUDENT, STAFF, ADMIN], default: STUDENT }
     UserUpdatePayload:
       type: object
       properties:
-        username:
-          type: string
-        firstName:
-          type: string
-        lastName:
-          type: string
-        phone:
-          type: string
-        cpf:
-          type: string
-        role:
-          type: string
-          enum: [STUDENT, STAFF, ADMIN]   
-
-    # --- Schemas de Instituições ---
+        username: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        phone: { type: string }
+    
+    # --- Institutions & Addresses ---
     AddressPayload:
       type: object
       required: [street, number, postalCode, city, state]
@@ -108,7 +78,6 @@ components:
       properties:
         name: { type: string }
         acronym: { type: string }
-        cnpj: { type: string }
         status: { type: string, enum: [ACTIVE, INACTIVE, UNDER_REVIEW] }
         address:
           type: object
@@ -117,7 +86,22 @@ components:
             number: { type: string }
             postalCode: { type: string }
             city: { type: string }
-            state: { type: string }   
+            state: { type: string }
+
+    # --- Courses ---
+    CourseCreatePayload:
+      type: object
+      required: [name, workload]
+      properties:
+        name: { type: string, example: 'Introdução à Blockchain' }
+        description: { type: string, example: 'Curso sobre os fundamentos da tecnologia blockchain.' }
+        workload: { type: number, format: float, example: 40.5 }
+    CourseUpdatePayload:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        workload: { type: number, format: float }
 
 paths:
   /: 
@@ -131,181 +115,15 @@ paths:
     post:
       tags: [Authentication]
       summary: 'Realiza login e define os cookies de autenticação'
-      description: 'Após o sucesso, os cookies `accessToken` (15min) e `refreshToken` (7dias) são definidos no navegador.'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/LoginPayload' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginPayload' } } } }
       responses:
         '200': { description: 'Login bem-sucedido.' }
-        '401': { description: 'Credenciais inválidas.' }
   /auth/refresh:
     post:
       tags: [Authentication]
       summary: 'Usa o refreshToken para obter um novo accessToken'
-      description: 'Esta rota usa o cookie `refreshToken` para gerar e definir um novo cookie `accessToken`.'
       responses:
         '200': { description: 'Token de acesso renovado.' }
-        '401': { description: 'Refresh token não encontrado.' }
-        '403': { description: 'Refresh token inválido ou expirado.' }
-  /auth/logout:
-    post:
-      tags: [Authentication]
-      summary: 'Realiza logout e limpa os cookies de autenticação'
-      responses:
-        '200': { description: 'Logout bem-sucedido.' }
-  
-  /users/register:
-    post:
-      tags: [Users]
-      summary: 'Registra um novo usuário (público)'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/UserRegisterPayload' }
-      responses:
-        '201': { description: 'Usuário criado com sucesso.' }
-        '409': { description: 'Usuário ou email já existe.' }
-
-  /users/profile/me:
-    get:
-      tags: [Users]
-      summary: 'Busca os dados do usuário autenticado'
-      description: 'Requer cookie de autenticação.'
-      responses:
-        '200': { description: 'Dados do usuário.' }
-        '401': { description: 'Não autorizado.' }
-  
-  /users:
-    get:
-      tags: [Users]
-      summary: 'Lista todos os usuários (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
-      responses:
-        '200': { description: 'Lista de usuários.' }
-        '401': { description: 'Não autorizado.' }
-        '403': { description: 'Permissão negada.' }
-
-  /users/{id}:
-    get:
-      tags: [Users]
-      summary: 'Busca um usuário por ID (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      responses:
-        '200': { description: 'Dados do usuário.' }
-        '404': { description: 'Usuário não encontrado.' }
-    patch:
-      tags: [Users]
-      summary: 'Atualiza um usuário (Admin pode atualizar qualquer um, usuário comum apenas a si mesmo)'
-      description: 'Requer cookie de autenticação.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/UserUpdatePayload' }
-      responses:
-        '200': { description: 'Usuário atualizado.' }
-        '403': { description: 'Permissão negada.' }
-    delete:
-      tags: [Users]
-      summary: 'Deleta um usuário por ID (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      responses:
-        '204': { description: 'Usuário deletado com sucesso.' }
-        '403': { description: 'Permissão negada.' }
-  
-  /institutions:
-    post:
-      tags: [Institutions]
-      summary: 'Cria uma nova instituição (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/InstitutionCreatePayload' }
-      responses:
-        '201': { description: 'Instituição criada com sucesso.' }
-        '403': { description: 'Permissão negada.' }
-    get:
-      tags: [Institutions]
-      summary: 'Lista todas as instituições (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
-      responses:
-        '200': { description: 'Lista de instituições.' }
-        '403': { description: 'Permissão negada.' }
-
-  /institutions/{id}:
-    get:
-      tags: [Institutions]
-      summary: 'Busca uma instituição por ID (Admin ou Staff da instituição)'
-      description: 'Requer cookie de autenticação. Admins podem ver qualquer instituição. Staffs podem ver apenas a sua própria.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      responses:
-        '200': { description: 'Dados da instituição.' }
-        '403': { description: 'Permissão negada.' }
-    patch:
-      tags: [Institutions]
-      summary: 'Atualiza uma instituição por ID (Admin ou Staff da instituição)'
-      description: 'Requer cookie de autenticação. Admins podem atualizar qualquer instituição. Staffs podem atualizar apenas a sua própria.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/InstitutionUpdatePayload' }
-      responses:
-        '200': { description: 'Instituição atualizada.' }
-        '403': { description: 'Permissão negada.' }
-    delete:
-      tags: [Institutions]
-      summary: 'Deleta uma instituição por ID (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      responses:
-        '204': { description: 'Instituição deletada com sucesso.' }
-        '403': { description: 'Permissão negada.' }
-  /: 
-    get:
-      tags: [Healthcheck]
-      summary: 'Verifica se a API está no ar'
-      responses:
-        '200': { description: 'API está funcionando' }
-
-  /auth/login:
-    post:
-      tags: [Authentication]
-      summary: 'Realiza login e define os cookies de autenticação'
-      description: 'Após o sucesso, os cookies `accessToken` (15min) e `refreshToken` (7dias) são definidos no navegador.'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginPayload'
-      responses:
-        '200': { description: 'Login bem-sucedido.' }
-        '401': { description: 'Credenciais inválidas.' }
-
-  /auth/refresh:
-    post:
-      tags: [Authentication]
-      summary: 'Usa o refreshToken para obter um novo accessToken'
-      description: 'Esta rota deve ser chamada pelo frontend quando o accessToken expirar. Usa o cookie `refreshToken`.'
-      responses:
-        '200': { description: 'Token de acesso renovado com sucesso.' }
-        '401': { description: 'Refresh token não encontrado.' }
-        '403': { description: 'Refresh token inválido ou expirado.' }
-
   /auth/logout:
     post:
       tags: [Authentication]
@@ -317,129 +135,105 @@ paths:
     post:
       tags: [Users]
       summary: 'Registra um novo usuário'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UserRegisterPayload'
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UserRegisterPayload' } } } }
       responses:
         '201': { description: 'Usuário criado com sucesso.' }
-        '409': { description: 'Conflito, o nome de usuário ou e-mail já existe.' }
-
   /users/profile/me:
     get:
       tags: [Users]
       summary: 'Busca os dados do usuário autenticado'
-      description: 'Requer cookie de autenticação.'
       responses:
         '200': { description: 'Dados do usuário.' }
-        '401': { description: 'Não autorizado.' }
-  
   /users:
     get:
       tags: [Users]
       summary: 'Lista todos os usuários (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
       responses:
         '200': { description: 'Lista de usuários.' }
-        '401': { description: 'Não autorizado.' }
-        '403': { description: 'Permissão negada.' }
-
   /users/{id}:
     get:
       tags: [Users]
-      summary: 'Busca um usuário por ID (Protegido)'
-      description: 'Requer cookie de autenticação.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
+      summary: 'Busca um usuário por ID (Somente Admin)'
+      parameters: [ { name: id, in: path, required: true, schema: { type: string } } ]
       responses:
         '200': { description: 'Dados do usuário.' }
-        '404': { description: 'Usuário não encontrado.' }
     patch:
       tags: [Users]
-      summary: 'Atualiza um usuário (Admin pode atualizar qualquer um, usuário comum apenas a si mesmo)'
-      description: 'Requer cookie de autenticação.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UserUpdatePayload'
+      summary: 'Atualiza um usuário (Admin ou o próprio usuário)'
+      parameters: [ { name: id, in: path, required: true, schema: { type: string } } ]
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/UserUpdatePayload' } } } }
       responses:
-        '200': { description: 'Usuário atualizado com sucesso.' }
-        '403': { description: 'Permissão negada.' }
+        '200': { description: 'Usuário atualizado.' }
     delete:
       tags: [Users]
       summary: 'Deleta um usuário por ID (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
+      parameters: [ { name: id, in: path, required: true, schema: { type: string } } ]
       responses:
-        '204': { description: 'Usuário deletado com sucesso.' }
-        '403': { description: 'Permissão negada.' }
+        '204': { description: 'Usuário deletado.' }
 
   /institutions:
     post:
       tags: [Institutions]
       summary: 'Cria uma nova instituição (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InstitutionCreatePayload'
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InstitutionCreatePayload' } } } }
       responses:
-        '201': { description: 'Instituição criada com sucesso.' }
-        '401': { description: 'Não autorizado.' }
-        '403': { description: 'Permissão negada.' }
+        '201': { description: 'Instituição criada.' }
     get:
       tags: [Institutions]
       summary: 'Lista todas as instituições (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin.'
       responses:
         '200': { description: 'Lista de instituições.' }
-        '401': { description: 'Não autorizado.' }
-        '403': { description: 'Permissão negada.' }
-
   /institutions/{id}:
     get:
       tags: [Institutions]
       summary: 'Busca uma instituição por ID (Admin ou Staff da instituição)'
-      description: 'Requer cookie de autenticação. Admins podem ver qualquer instituição. Staffs podem ver apenas a sua própria.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
+      parameters: [ { name: id, in: path, required: true, schema: { type: string } } ]
       responses:
         '200': { description: 'Dados da instituição.' }
-        '401': { description: 'Não autorizado.' }
-        '403': { description: 'Permissão negada.' }
-        '404': { description: 'Instituição não encontrada.' }
     patch:
       tags: [Institutions]
       summary: 'Atualiza uma instituição por ID (Admin ou Staff da instituição)'
-      description: 'Requer cookie de autenticação. Admins podem atualizar qualquer instituição. Staffs podem atualizar apenas a sua própria.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InstitutionUpdatePayload'
+      parameters: [ { name: id, in: path, required: true, schema: { type: string } } ]
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/InstitutionUpdatePayload' } } } }
       responses:
-        '200': { description: 'Instituição atualizada com sucesso.' }
-        '401': { description: 'Não autorizado.' }
-        '403': { description: 'Permissão negada.' }
-        '404': { description: 'Instituição não encontrada.' }
+        '200': { description: 'Instituição atualizada.' }
     delete:
       tags: [Institutions]
       summary: 'Deleta uma instituição por ID (Somente Admin)'
-      description: 'Requer cookie de autenticação com permissão de Admin. Esta ação é irreversível.'
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
+      parameters: [ { name: id, in: path, required: true, schema: { type: string } } ]
       responses:
-        '204': { description: 'Instituição deletada com sucesso.' }
-        '401': { description: 'Não autorizado.' }
-        '403': { description: 'Permissão negada.' }
-        '404': { description: 'Instituição não encontrada.' }
+        '204': { description: 'Instituição deletada.' }
+
+  /institutions/{institutionId}/courses:
+    post:
+      tags: [Courses]
+      summary: 'Cria um novo curso para uma instituição (Admin ou Staff)'
+      parameters: [ { name: institutionId, in: path, required: true, schema: { type: string } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CourseCreatePayload' } } } }
+      responses:
+        '201': { description: 'Curso criado.' }
+    get:
+      tags: [Courses]
+      summary: 'Lista os cursos de uma instituição'
+      parameters: [ { name: institutionId, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: 'Lista de cursos.' }
+
+  /institutions/{institutionId}/courses/{courseId}:
+    patch:
+      tags: [Courses]
+      summary: 'Atualiza um curso (Admin ou Staff da instituição)'
+      parameters:
+        - { name: institutionId, in: path, required: true, schema: { type: string }, description: "ID da instituição (necessário para a rota, mas não para a lógica)" }
+        - { name: courseId, in: path, required: true, schema: { type: string } }
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CourseUpdatePayload' } } } }
+      responses:
+        '200': { description: 'Curso atualizado.' }
+    delete:
+      tags: [Courses]
+      summary: 'Deleta um curso (Admin ou Staff da instituição)'
+      parameters:
+        - { name: institutionId, in: path, required: true, schema: { type: string }, description: "ID da instituição (necessário para a rota, mas não para a lógica)" }
+        - { name: courseId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Curso deletado.' }
