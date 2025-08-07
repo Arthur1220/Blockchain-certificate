@@ -16,26 +16,20 @@ tags:
     description: 'Gerenciamento de instituições'
   - name: 'Courses'
     description: 'Gerenciamento de cursos por instituição'
+  - name: 'Certificates'
+    description: 'Gerenciamento de certificados'
   - name: 'Healthcheck'
     description: 'Verificação de status da API'
 
 components:
   schemas:
-    # --- Auth ---
+    # --- Auth & Users ---
     LoginPayload:
       type: object
       required: [email, password]
       properties:
-        email:
-          type: string
-          format: email
-          example: 'admin@test.com'
-        password:
-          type: string
-          format: password
-          example: 'password123'
-    
-    # --- Users ---
+        email: { type: string, format: email, example: 'admin@test.com' }
+        password: { type: string, format: password, example: 'password123' }
     UserRegisterPayload:
       type: object
       required: [username, email, password]
@@ -52,7 +46,6 @@ components:
         username: { type: string }
         firstName: { type: string }
         lastName: { type: string }
-        phone: { type: string }
     
     # --- Institutions & Addresses ---
     AddressPayload:
@@ -71,22 +64,14 @@ components:
         name: { type: string, example: 'Universidade Estadual de Santa Cruz' }
         acronym: { type: string, example: 'UESC' }
         cnpj: { type: string, example: '00.000.000/0001-00' }
-        address:
-          $ref: '#/components/schemas/AddressPayload'
+        address: { $ref: '#/components/schemas/AddressPayload' }
     InstitutionUpdatePayload:
       type: object
       properties:
         name: { type: string }
         acronym: { type: string }
         status: { type: string, enum: [ACTIVE, INACTIVE, UNDER_REVIEW] }
-        address:
-          type: object
-          properties:
-            street: { type: string }
-            number: { type: string }
-            postalCode: { type: string }
-            city: { type: string }
-            state: { type: string }
+        address: { type: object, properties: { street: { type: string }, number: { type: string }, postalCode: { type: string }, city: { type: string }, state: { type: string } } }
 
     # --- Courses ---
     CourseCreatePayload:
@@ -103,14 +88,27 @@ components:
         description: { type: string }
         workload: { type: number, format: float }
 
+    # --- Certificates ---
+    CertificateIssuePayload:
+      type: object
+      required: [ownerId, courseId, certificateCode, ipfsHash, issueDate]
+      properties:
+        ownerId: { type: string, description: "ID do usuário (STUDENT) que receberá o certificado.", example: "cme0bf63b0001g78jyeamfy28" }
+        courseId: { type: string, description: "ID do CourseTemplate referente a este certificado.", example: "cme0c2n1b000kg7aoso3pezpv" }
+        certificateCode: { type: string, description: "Código único gerado pela instituição.", example: "UESC-2025-XYZ-001" }
+        ipfsHash: { type: string, description: "Hash do documento (PDF) no IPFS.", example: "QmXoW8...ZCW2" }
+        issueDate: { type: string, format: "date-time", description: "Data de emissão do certificado." }
+    CertificateStatusUpdatePayload:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [VALID, REVOKED, PENDING], example: "VALID" }
+
 paths:
   /: 
-    get:
-      tags: [Healthcheck]
-      summary: 'Verifica se a API está no ar'
-      responses:
-        '200': { description: 'API está funcionando' }
+    get: { tags: [Healthcheck], summary: 'Verifica se a API está no ar', responses: { '200': { description: 'API está funcionando' } } }
   
+  # --- Auth Paths ---
   /auth/login:
     post:
       tags: [Authentication]
@@ -119,37 +117,22 @@ paths:
       responses:
         '200': { description: 'Login bem-sucedido.' }
   /auth/refresh:
-    post:
-      tags: [Authentication]
-      summary: 'Usa o refreshToken para obter um novo accessToken'
-      responses:
-        '200': { description: 'Token de acesso renovado.' }
+    post: { tags: [Authentication], summary: 'Usa o refreshToken para obter um novo accessToken', responses: { '200': { description: 'Token de acesso renovado.' } } }
   /auth/logout:
-    post:
-      tags: [Authentication]
-      summary: 'Realiza logout e limpa os cookies de autenticação'
-      responses:
-        '200': { description: 'Logout bem-sucedido.' }
+    post: { tags: [Authentication], summary: 'Realiza logout e limpa os cookies', responses: { '200': { description: 'Logout bem-sucedido.' } } }
   
+  # --- User Paths ---
   /users/register:
     post:
       tags: [Users]
       summary: 'Registra um novo usuário'
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UserRegisterPayload' } } } }
       responses:
-        '201': { description: 'Usuário criado com sucesso.' }
+        '201': { description: 'Usuário criado.' }
   /users/profile/me:
-    get:
-      tags: [Users]
-      summary: 'Busca os dados do usuário autenticado'
-      responses:
-        '200': { description: 'Dados do usuário.' }
+    get: { tags: [Users], summary: 'Busca os dados do usuário autenticado', responses: { '200': { description: 'Dados do usuário.' } } }
   /users:
-    get:
-      tags: [Users]
-      summary: 'Lista todos os usuários (Somente Admin)'
-      responses:
-        '200': { description: 'Lista de usuários.' }
+    get: { tags: [Users], summary: 'Lista todos os usuários (Somente Admin)', responses: { '200': { description: 'Lista de usuários.' } } }
   /users/{id}:
     get:
       tags: [Users]
@@ -171,6 +154,7 @@ paths:
       responses:
         '204': { description: 'Usuário deletado.' }
 
+  # --- Institution Paths ---
   /institutions:
     post:
       tags: [Institutions]
@@ -178,11 +162,7 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InstitutionCreatePayload' } } } }
       responses:
         '201': { description: 'Instituição criada.' }
-    get:
-      tags: [Institutions]
-      summary: 'Lista todas as instituições (Somente Admin)'
-      responses:
-        '200': { description: 'Lista de instituições.' }
+    get: { tags: [Institutions], summary: 'Lista todas as instituições (Somente Admin)', responses: { '200': { description: 'Lista de instituições.' } } }
   /institutions/{id}:
     get:
       tags: [Institutions]
@@ -203,7 +183,8 @@ paths:
       parameters: [ { name: id, in: path, required: true, schema: { type: string } } ]
       responses:
         '204': { description: 'Instituição deletada.' }
-
+  
+  # --- Course Paths ---
   /institutions/{institutionId}/courses:
     post:
       tags: [Courses]
@@ -212,19 +193,13 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CourseCreatePayload' } } } }
       responses:
         '201': { description: 'Curso criado.' }
-    get:
-      tags: [Courses]
-      summary: 'Lista os cursos de uma instituição'
-      parameters: [ { name: institutionId, in: path, required: true, schema: { type: string } } ]
-      responses:
-        '200': { description: 'Lista de cursos.' }
-
+    get: { tags: [Courses], summary: 'Lista os cursos de uma instituição', parameters: [ { name: institutionId, in: path, required: true, schema: { type: string } } ], responses: { '200': { description: 'Lista de cursos.' } } }
   /institutions/{institutionId}/courses/{courseId}:
     patch:
       tags: [Courses]
       summary: 'Atualiza um curso (Admin ou Staff da instituição)'
       parameters:
-        - { name: institutionId, in: path, required: true, schema: { type: string }, description: "ID da instituição (necessário para a rota, mas não para a lógica)" }
+        - { name: institutionId, in: path, required: true, schema: { type: string } }
         - { name: courseId, in: path, required: true, schema: { type: string } }
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CourseUpdatePayload' } } } }
       responses:
@@ -233,7 +208,47 @@ paths:
       tags: [Courses]
       summary: 'Deleta um curso (Admin ou Staff da instituição)'
       parameters:
-        - { name: institutionId, in: path, required: true, schema: { type: string }, description: "ID da instituição (necessário para a rota, mas não para a lógica)" }
+        - { name: institutionId, in: path, required: true, schema: { type: string } }
         - { name: courseId, in: path, required: true, schema: { type: string } }
       responses:
         '204': { description: 'Curso deletado.' }
+
+  # --- Certificate Paths ---
+  /certificates:
+    post:
+      tags: [Certificates]
+      summary: 'Emite um novo certificado (Admin ou Staff)'
+      description: 'Um Staff só pode emitir certificados para cursos de sua própria instituição e para alunos vinculados a ela.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CertificateIssuePayload'
+      responses:
+        '201': { description: 'Certificado emitido com sucesso.' }
+        '403': { description: 'Permissão negada.' }
+        '404': { description: 'Curso ou aluno não encontrado.' }
+    get:
+      tags: [Certificates]
+      summary: 'Lista certificados com base no perfil do usuário'
+      description: 'STUDENTs veem apenas seus próprios certificados. STAFFs veem os certificados de sua instituição. ADMINs veem todos.'
+      responses:
+        '200': { description: 'Lista de certificados.' }
+
+  /certificates/{id}/status:
+    patch:
+      tags: [Certificates]
+      summary: 'Atualiza o status de um certificado (Admin ou Staff)'
+      description: 'Permite alterar o status de um certificado (ex: PENDING para VALID, ou VALID para REVOKED).'
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CertificateStatusUpdatePayload'
+      responses:
+        '200': { description: 'Status do certificado atualizado.' }
+        '403': { description: 'Permissão negada.' }
