@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import AppError from '../errors/AppError.js';
-
-const prisma = new PrismaClient();
+import prisma from '../config/prismaClient.js';
 
 // Opções de seleção para garantir que a senha nunca seja retornada
 const userSelectOptions = {

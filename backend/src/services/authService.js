@@ -1,10 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/prismaClient.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import config from '../config/index.js';
 import AppError from '../errors/AppError.js';
-
-const prisma = new PrismaClient();
 
 // Função para buscar o usuário e checar se ele ainda existe/está ativo
 async function validateUser(userId) {

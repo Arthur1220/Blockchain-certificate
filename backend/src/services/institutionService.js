@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/prismaClient.js';
 import AppError from '../errors/AppError.js';
-
-const prisma = new PrismaClient();
 
 // --- CREATE ---
 export const createInstitution = async (data) => {

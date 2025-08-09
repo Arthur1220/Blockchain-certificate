@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/prismaClient.js';
 import AppError from '../errors/AppError.js';
-
-const prisma = new PrismaClient();
 
 // Função auxiliar para verificar permissão
 const checkCoursePermission = async (courseId, user) => {
