@@ -1,30 +1,29 @@
 import { Router } from 'express';
 import * as userController from '../controllers/userController.js';
 import { validate } from '../middlewares/validate.js';
-import userValidator from '../validators/userValidator.js';
+import userValidator from '../validators/userValidator.js'; // Usando a exportação padrão
 import { protect } from '../middlewares/protect.js';
 import { authorize } from '../middlewares/authorize.js';
 
 const router = Router();
 
-// CREATE
-// Rota de registro de usuário (pública)
+// --- Rotas Públicas ---
 router.post('/register', validate(userValidator.registerSchema), userController.register);
 
-// UPDATE
-// Rota de atualização de usuário (protegida, qualquer usuário autenticado)
-router.patch('/:id', protect, validate(userValidator.updateSchema), userController.update);
+// --- A partir daqui, todas as rotas exigem autenticação ---
+router.use(protect);
 
-// READ
-// Rota de listagem de todos os usuários (protegida, apenas ADMIN)
-router.get('/', protect, authorize('ADMIN'), userController.getAll);
-// Rota de obtenção do perfil do usuário autenticado (protegida, qualquer usuário autenticado)
-router.get('/profile/me', protect, userController.getMe);
-// Rota de obtenção de um usuário por ID (protegida, qualquer usuário autenticado)
-router.get('/:id', protect, userController.getById);
+// --- Rotas Específicas (vêm antes das genéricas) ---
+router.get('/profile/me', userController.getMe);
 
-// DELETE
-// Rota de remoção de usuário (protegida, apenas ADMIN)
-router.delete('/:id', protect, authorize('ADMIN'), userController.remove);
+// --- Rotas para Usuários em Geral (com permissões) ---
+router.get('/', authorize('ADMIN'), userController.getAll);
+
+// --- Rotas Genéricas com :id (vêm por último) ---
+router
+  .route('/:id')
+  .get(validate(userValidator.idParamSchema), userController.getById) // Valida o ID
+  .patch(validate(userValidator.updateUserSchema), userController.update) // Valida ID + body
+  .delete(validate(userValidator.idParamSchema), authorize('ADMIN'), userController.remove); // Valida o ID
 
 export default router;
