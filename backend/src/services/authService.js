@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import config from '../config/index.js';
+import AppError from '../errors/AppError.js';
 
 const prisma = new PrismaClient();
 
@@ -9,9 +10,7 @@ const prisma = new PrismaClient();
 async function validateUser(userId) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || !user.isActive) {
-    const error = new Error('User not found or is not active.');
-    error.statusCode = 401;
-    throw error;
+    throw new AppError('User not found or is not active.', 401);
   }
   return user;
 }
@@ -20,16 +19,12 @@ export const loginUser = async (email, password) => {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
-    const error = new Error('Invalid credentials.');
-    error.statusCode = 401;
-    throw error;
+    throw new AppError('Invalid credentials.', 401);
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
-    const error = new Error('Invalid credentials.');
-    error.statusCode = 401;
-    throw error;
+    throw new AppError('Invalid credentials.', 401);
   }
 
   // Payload consistente para o Access Token
@@ -74,10 +69,8 @@ export const refreshAccessToken = async (token) => {
     return accessToken;
 
   } catch (error) {
-    if (error.statusCode === 401) throw error; // Repassa o erro de usuário não encontrado
+    if (error.statusCode === 401) throw new AppError('User not found or is not active.', 401); // Repassa o erro de usuário não encontrado
 
-    const err = new Error('Invalid or expired refresh token.');
-    err.statusCode = 403; // Forbidden
-    throw err;
+    throw new AppError('Invalid or expired refresh token.', 403);
   }
 };

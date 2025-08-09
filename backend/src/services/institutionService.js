@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import AppError from '../errors/AppError.js';
 
 const prisma = new PrismaClient();
 
@@ -37,9 +38,7 @@ export const getInstitutionById = async (institutionId, user) => {
       },
     });
     if (!membership) {
-      const error = new Error('Forbidden');
-      error.statusCode = 403;
-      throw error;
+      throw new AppError('Forbidden: You do not have permission for this institution.', 403);
     }
   }
   
@@ -65,9 +64,7 @@ export const updateInstitution = async (institutionId, data, user) => {
 export const deleteInstitution = async (id, user) => {
   // A verificação de permissão está correta
   if (user.role !== 'ADMIN') {
-    const error = new Error('Forbidden');
-    error.statusCode = 403;
-    throw error;
+    throw new AppError('Forbidden: You do not have permission for this institution.', 403);
   }
   
   // Busca a instituição para pegar o ID do endereço
@@ -77,9 +74,7 @@ export const deleteInstitution = async (id, user) => {
   });
 
   if (!institution) {
-    const error = new Error('Institution not found');
-    error.statusCode = 404;
-    throw error;
+    throw new AppError('Institution not found', 404);
   }
 
   // Executa a deleção em uma transação para garantir que tudo ocorra

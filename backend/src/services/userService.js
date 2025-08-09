@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import AppError from '../errors/AppError.js';
 
 const prisma = new PrismaClient();
 
@@ -25,9 +26,7 @@ export const createUser = async (userData) => {
   });
 
   if (existingUser) {
-    const error = new Error('User with this email or username already exists.');
-    error.statusCode = 409;
-    throw error;
+    throw new AppError('User with this email or username already exists.', 409);
   }
 
   const salt = await bcrypt.genSalt(10);

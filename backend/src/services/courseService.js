@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import AppError from '../errors/AppError.js';
 
 const prisma = new PrismaClient();
 
@@ -16,9 +17,7 @@ const checkCoursePermission = async (courseId, user) => {
       },
     });
     if (!membership) {
-      const error = new Error('Forbidden: You do not have permission for this course.');
-      error.statusCode = 403;
-      throw error;
+      throw new AppError('Forbidden: You do not have permission for this course.', 403);
     }
   }
   // Admin tem acesso a tudo
