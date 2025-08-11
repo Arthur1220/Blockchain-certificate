@@ -17,8 +17,8 @@ const config = {
 
   blockchain: {
     nodeUrl: process.env.BLOCKCHAIN_NODE_URL || 'http://127.0.0.1:8545',
-    privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY,
-    contractAddress: process.env.BLOCKCHAIN_CONTRACT_ADDRESS,
+    privateKey: process.env.BACKEND_WALLET_PRIVATE_KEY,
+    contractAddress: process.env.CONTRACT_ADDRESS,
   },
 };
 

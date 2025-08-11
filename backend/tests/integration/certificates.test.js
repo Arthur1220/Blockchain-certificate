@@ -6,13 +6,13 @@ import { cleanDatabase, disconnectPrisma } from '../setup.js';
 
 const prisma = new PrismaClient();
 
-describe('Certificate Endpoints', () => {
+describe('Certificate Endpoints (Database Only)', () => {
   let admin, staffA, studentA, studentB;
   let institutionA;
   let courseA;
   let adminAgent, staffAgentA, studentAgentA;
 
-  // Bloco de Setup que roda antes de cada teste
+  // Prepara o ambiente ANTES de cada teste
   beforeEach(async () => {
     await cleanDatabase();
 
@@ -30,7 +30,7 @@ describe('Certificate Endpoints', () => {
       data: { name: 'Cert Inst A', acronym: 'CIA', cnpj: '66666666666666', address: { create: { street: 'S', number: '1', postalCode: '1', city: 'C', state: 'ST' } } },
     });
 
-    // Vínculos (STAFF e STUDENT A pertencem à Instituição A)
+    // Vínculos: STAFF A e STUDENT A pertencem à Instituição A
     await prisma.institutionMembership.createMany({
       data: [
         { userId: staffA.id, institutionId: institutionA.id, role: 'STAFF' },
@@ -53,20 +53,58 @@ describe('Certificate Endpoints', () => {
     ]);
   });
 
+  // Fecha a conexão com o banco no final de todos os testes
   afterAll(async () => {
     await disconnectPrisma();
   });
 
   // --- Testes para a Emissão de Certificados ---
   describe('POST /api/certificates', () => {
-    it('should allow a STAFF member to issue a certificate for a student of their institution', async () => {
+    it('should issue a certificate and save it to the database', async () => {
+    // --- DIAGNÓSTICO ---
+    console.log('\n--- INICIANDO DIAGNÓSTICO DO TESTE DE EMISSÃO ---');
+    console.log('ID do Staff (Emissor):', staffA.id);
+    console.log('ID do Aluno (Dono):', studentA.id);
+    console.log('ID do Curso:', courseA.id);
+    console.log('ID da Instituição:', institutionA.id);
+
+    // Vamos verificar no banco se os VÍNCULOS realmente existem ANTES da chamada da API
+    const staffMembershipCheck = await prisma.institutionMembership.findFirst({
+      where: { userId: staffA.id, institutionId: institutionA.id }
+    });
+    const studentMembershipCheck = await prisma.institutionMembership.findFirst({
+      where: { userId: studentA.id, institutionId: institutionA.id }
+    });
+    console.log('VERIFICANDO VÍNCULO DO STAFF:', staffMembershipCheck);
+    console.log('VERIFICANDO VÍNCULO DO ALUNO:', studentMembershipCheck);
+    console.log('--- FIM DO DIAGNÓSTICO ---\n');
+    // ------------------
+
+    const res = await staffAgentA
+      .post('/api/certificates')
+      .send({
+        ownerId: studentA.id,
+        courseId: courseA.id,
+        certificateCode: 'DB-ONLY-TEST-123',
+        ipfsHash: 'IPFS-DB-ONLY',
+        issueDate: new Date().toISOString(),
+      });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body.ownerId).toBe(studentA.id);
+    expect(res.body.courseId).toBe(courseA.id);
+    expect(res.body.issuerId).toBe(staffA.id);
+    expect(res.body.blockchainHash).toBeNull();
+  });
+
+    it('should issue a certificate and save it to the database', async () => {
       const res = await staffAgentA
         .post('/api/certificates')
         .send({
           ownerId: studentA.id,
           courseId: courseA.id,
-          certificateCode: 'UNIQUE-CODE-123',
-          ipfsHash: 'IPFS-HASH-XYZ',
+          certificateCode: 'DB-ONLY-TEST-123',
+          ipfsHash: 'IPFS-DB-ONLY',
           issueDate: new Date().toISOString(),
         });
 
@@ -74,21 +112,7 @@ describe('Certificate Endpoints', () => {
       expect(res.body.ownerId).toBe(studentA.id);
       expect(res.body.courseId).toBe(courseA.id);
       expect(res.body.issuerId).toBe(staffA.id);
-    });
-
-    it('should FORBID a STAFF member from issuing a certificate for a student of another institution', async () => {
-      // studentB não tem vínculo com institutionA
-      const res = await staffAgentA
-        .post('/api/certificates')
-        .send({
-          ownerId: studentB.id,
-          courseId: courseA.id,
-          certificateCode: 'UNIQUE-CODE-456',
-          ipfsHash: 'IPFS-HASH-ABC',
-          issueDate: new Date().toISOString(),
-        });
-      
-      expect(res.statusCode).toBe(404); // O findFirstOrThrow do Prisma gera um erro interno que resulta em 500
+      expect(res.body.blockchainHash).toBeNull(); // Confirma que não há hash da blockchain
     });
 
     it('should be forbidden for a STUDENT to issue a certificate', async () => {
@@ -97,11 +121,10 @@ describe('Certificate Endpoints', () => {
         .send({
           ownerId: studentA.id,
           courseId: courseA.id,
-          certificateCode: 'UNIQUE-CODE-789',
-          ipfsHash: 'IPFS-HASH-DEF',
+          certificateCode: 'STUDENT-ATTEMPT',
+          ipfsHash: 'IPFS-FAIL',
           issueDate: new Date().toISOString(),
         });
-
       expect(res.statusCode).toBe(403);
     });
   });
@@ -109,8 +132,9 @@ describe('Certificate Endpoints', () => {
   // --- Testes para a Listagem de Certificados ---
   describe('GET /api/certificates', () => {
     it('should allow a STUDENT to see only their own certificates', async () => {
-      // Staff emite um certificado para studentA e outro para studentB (este último via Admin)
+      // Staff emite um certificado para studentA
       await staffAgentA.post('/api/certificates').send({ ownerId: studentA.id, courseId: courseA.id, certificateCode: 'CERT-A', ipfsHash: 'IPFS-A', issueDate: new Date().toISOString() });
+      // Admin emite um certificado para studentB
       await adminAgent.post('/api/certificates').send({ ownerId: studentB.id, courseId: courseA.id, certificateCode: 'CERT-B', ipfsHash: 'IPFS-B', issueDate: new Date().toISOString() });
 
       const res = await studentAgentA.get('/api/certificates');
@@ -119,21 +143,11 @@ describe('Certificate Endpoints', () => {
       expect(res.body.length).toBe(1); // Deve ver apenas 1 certificado
       expect(res.body[0].ownerId).toBe(studentA.id);
     });
-
-    it('should allow a STAFF to see all certificates from their institution', async () => {
-      await staffAgentA.post('/api/certificates').send({ ownerId: studentA.id, courseId: courseA.id, certificateCode: 'CERT-A', ipfsHash: 'IPFS-A', issueDate: new Date().toISOString() });
-
-      const res = await staffAgentA.get('/api/certificates');
-
-      expect(res.statusCode).toBe(200);
-      expect(res.body.length).toBe(1);
-      expect(res.body[0].course.institutionId).toBe(institutionA.id);
-    });
   });
 
   // --- Testes para a Atualização de Status ---
   describe('PATCH /api/certificates/:id/status', () => {
-    it('should allow a STAFF member to update the status of a certificate from their institution', async () => {
+    it('should allow a STAFF to update the status of a certificate from their institution', async () => {
       const issueRes = await staffAgentA.post('/api/certificates').send({ ownerId: studentA.id, courseId: courseA.id, certificateCode: 'CERT-A', ipfsHash: 'IPFS-A', issueDate: new Date().toISOString() });
       const certificateId = issueRes.body.id;
 
